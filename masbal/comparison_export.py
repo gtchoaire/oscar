@@ -12,6 +12,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 from .comparison_plot import draw_comparison_axis
+from .temporal_comparison_plot import draw_temporal_comparison_axis
 from .config import (
     EXPORT_FIGURE_SIZE, EXPORT_RENDER_DPI, SERIES_COLORS, SERIES_CONFIG, TOTAL_COLOR,
 )
@@ -68,6 +69,10 @@ def build_comparison_page(
     page_number: int = 1,
     page_count: int = 1,
     legend_results: list[ComparisonResult] | None = None,
+    plot_mode: str = "accumulated",
+    selected_labels: frozenset[str] | None = None,
+    log_scale: bool = False,
+    positive_minimum: float | None = None,
 ) -> Figure:
     """Página 2×2 com tipografia hierárquica e legenda comum."""
     if not 1 <= len(page_results) <= SCENARIOS_PER_PAGE:
@@ -78,17 +83,22 @@ def build_comparison_page(
         2, 2, left=0.085, right=0.975, top=0.785, bottom=0.285,
         wspace=0.25, hspace=0.75,
     )
-    figure.text(0.085, 0.946, "Comparação MASBAL — distribuição acumulada",
-                fontsize=TYPE.title, color=PLOT_TEXT, weight="bold", va="top")
+    plot_title = ("Comparação — evolução temporal" if plot_mode == "temporal" else "Comparação - distribuição acumulada")
+    figure.text(0.085, 0.946, plot_title, fontsize=TYPE.title, color=PLOT_TEXT, weight="bold", va="top")
     figure.text(0.085, 0.903, "Mesmas escalas de tempo e massa em todos os cenários",
                 fontsize=TYPE.subtitle, color=PLOT_MUTED, va="top")
     for index, result in enumerate(page_results):
         axis = (figure.add_subplot(grid[0, :]) if len(page_results) == 1
                 else figure.add_subplot(grid[index // 2, index % 2]))
-        draw_comparison_axis(
-            axis, result, time_limits, mass_maximum,
-            axis_label_size=TYPE.axis_label, axis_tick_size=TYPE.axis_ticks,
-        )
+        if plot_mode == "temporal":
+            draw_temporal_comparison_axis(
+                axis, result, time_limits, mass_maximum, selected_labels=selected_labels,
+                log_scale = log_scale, positive_minimum = positive_minimum)
+        else: 
+            draw_comparison_axis(
+                axis, result, time_limits, mass_maximum,
+                axis_label_size=TYPE.axis_label, axis_tick_size=TYPE.axis_ticks,
+            )
         main, separator, metadata = simulation_title(result.path).partition(" · ")
         position = axis.get_position()
         figure.text(position.x0, position.y1 + 0.073, main,
@@ -105,7 +115,8 @@ def build_comparison_page(
     return figure
 
 
-def save_comparison_report(results: list[ComparisonResult], output: Path) -> list[Path]:
+def save_comparison_report(results: list[ComparisonResult], output: Path, plot_mode: str = "accumulated", 
+                           selected_labels: frozenset[str] | None = None, log_scale: bool = False) -> list[Path]:
     """Exporta até quatro cenários por página com escalas comuns.
 
     PDF: arquivo com várias páginas. PNG/SVG/EPS: um arquivo por página;
@@ -126,6 +137,8 @@ def save_comparison_report(results: list[ComparisonResult], output: Path) -> lis
                     figure = build_comparison_page(
                         page, time_limits, mass_maximum,
                         page_number=index, page_count=len(pages), legend_results=results,
+                        plot_mode = plot_mode, selected_labels = selected_labels, log_scale = log_scale,
+                        positive_minimum = 1e-12 if log_scale else None
                     )
                     try:
                         document.savefig(figure, dpi=300, facecolor="white")
@@ -146,6 +159,8 @@ def save_comparison_report(results: list[ComparisonResult], output: Path) -> lis
             figure = build_comparison_page(
                 page, time_limits, mass_maximum,
                 page_number=index, page_count=len(pages), legend_results=results,
+                plot_mode = plot_mode, selected_labels = selected_labels, log_scale = log_scale,
+                positive_minimum = 1e-12 if log_scale else None
             )
             try:
                 save_report_figure(figure, filename)

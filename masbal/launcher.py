@@ -21,7 +21,7 @@ class StartWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("CANNES — Visualizador MASBAL")
+        self.setWindowTitle("OSCAR — Visualizador Balanço de Massa")
         self.resize(1020, 720)
         self.setMinimumSize(780, 620)
         self.dashboard: MassBalanceWindow | None = None
@@ -37,13 +37,13 @@ class StartWindow(QMainWindow):
         layout.setContentsMargins(36, 30, 36, 36)
         layout.setSpacing(10)
 
-        eyebrow = QLabel("CANNES  /  PÓS-PROCESSAMENTO  /  MASBAL")
+        eyebrow = QLabel("OSCAR  /  PÓS-PROCESSAMENTO")
         eyebrow.setObjectName("startEyebrow")
         layout.addWidget(eyebrow)
         title = QLabel("Balanço de massa")
         title.setObjectName("startTitle")
         layout.addWidget(title)
-        description = QLabel("Abra um resultado individual ou compare vários balanços de massa.")
+        description = QLabel("Abra um resultado individual ou compare cenários.")
         description.setObjectName("startDescription")
         description.setWordWrap(True)
         layout.addWidget(description)
@@ -52,7 +52,7 @@ class StartWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.setObjectName("startTabs")
         tabs.addTab(self._single_result_tab(), "Resultado individual")
-        tabs.addTab(self._cumulative_distribution_tab(), "Distribuição acumulada")
+        tabs.addTab(self._cumulative_distribution_tab(), "Comparação de cenários")
         layout.addWidget(tabs, stretch=1)
 
     def _single_result_tab(self) -> QWidget:
@@ -73,14 +73,13 @@ class StartWindow(QMainWindow):
         card_layout.addWidget(title)
         help_text = QLabel(
             "Abra um arquivo .masbal.log, .log ou .txt. "
-            "Os gráficos serão gerados assim que você selecionar o arquivo."
         )
         help_text.setObjectName("startHelp")
         help_text.setWordWrap(True)
         card_layout.addWidget(help_text)
         card_layout.addSpacing(12)
 
-        choose_button = QPushButton("Selecionar arquivo MASBAL")
+        choose_button = QPushButton("Selecionar arquivo")
         choose_button.setProperty("role", "primary")
         choose_button.clicked.connect(self._choose_file)
         card_layout.addWidget(choose_button)
@@ -109,9 +108,8 @@ class StartWindow(QMainWindow):
         title.setObjectName("startCardTitle")
         layout.addWidget(title)
         note = QLabel(
-            "Selecione dois ou mais arquivos MASBAL. A distribuição acumulada de cada "
-            "resultado será mostrada com as mesmas cores e escalas."
-        )
+            "Selecione dois ou mais arquivos. A distribuição acumulada e a evolução temporal serão apresentadas.")
+
         note.setObjectName("startHelp")
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -144,7 +142,7 @@ class StartWindow(QMainWindow):
         layout.addWidget(self.comparison_count)
         scroll.setWidget(content)
         outer.addWidget(scroll, stretch=1)
-        compare_button = QPushButton("Comparar distribuição acumulada")
+        compare_button = QPushButton("Comparar distribuições")
         compare_button.setProperty("role", "primary")
         compare_button.clicked.connect(self._open_comparison)
         self.compare_button = compare_button
@@ -256,7 +254,7 @@ class StartWindow(QMainWindow):
         dashboard.new_file_button.clicked.connect(self._show_start_page)
         self.start_page = self.takeCentralWidget()
         self.setCentralWidget(dashboard)
-        self.setWindowTitle("CANNES — Balanço de Massa")
+        self.setWindowTitle("OSCAR — Balanço de Massa")
         self.setMinimumSize(*WINDOW_MINIMUM_SIZE)
 
     def _show_start_page(self) -> None:
@@ -271,7 +269,7 @@ class StartWindow(QMainWindow):
         self.comparison = None
         old_page.deleteLater()
         self.setCentralWidget(self.start_page)
-        self.setWindowTitle("CANNES — Visualizador MASBAL")
+        self.setWindowTitle("OSCAR — Visualizador Balanço de Massa")
         self.setMinimumSize(780, 620)
         application = QApplication.instance()
         if application is not None:

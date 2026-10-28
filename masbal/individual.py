@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QSize, Qt, QTimer, Signal, QEvent
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QMenu, QMessageBox
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialog, QFrame,
@@ -27,6 +27,7 @@ class MassBalanceWindow(QMainWindow):
 
     def __init__(self, path: Path) -> None:
         super().__init__()
+        self.interface_zoom = 5
         data, names, time_name, time_unit, mass_unit = load_table(path)
         self.path = path
         self.time = data[:, 0]
@@ -60,6 +61,11 @@ class MassBalanceWindow(QMainWindow):
         self._build_interface()
         self._create_shortcuts()
         self._update_time_display(len(self.time) - 1)
+        application = QApplication.instance()
+        if application is not None:
+            application.installEventFilter(self)
+
+        self._apply_interface_font_size(0)
 
     def _build_interface(self) -> None:
         shell = QWidget()
@@ -112,6 +118,33 @@ class MassBalanceWindow(QMainWindow):
             shortcut = QShortcut(QKeySequence(key), self)
             shortcut.activated.connect(callback)
             self.shortcuts.append(shortcut)
+
+    def eventFilter(self, watched, event):
+        if (
+            event.type() == QEvent.Type.Wheel
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            and isinstance(watched, QWidget)
+            and (watched is self or self.isAncestorOf(watched))
+        ):
+            delta = event.angleDelta().y()
+
+            if delta:
+                self._change_interface_zoom(1 if delta > 0 else -1)
+
+            event.accept()
+            return True
+
+        return super().eventFilter(watched, event)
+
+
+    def _change_interface_zoom(self, step: int) -> None:
+        self.interface_zoom = int(
+            np.clip(self.interface_zoom + step, -5, 5)
+        )
+
+        self._apply_interface_font_size(
+            self.canvas._font_adjustment
+        )
 
     # -------------------------------------------------------------------------
     # SETOR A — CABEÇALHO: título, tempo atual e retorno do gráfico ampliado
@@ -573,7 +606,8 @@ class MassBalanceWindow(QMainWindow):
         """Sincroniza menus, navegação e gráficos no mesmo nível de zoom."""
         application = QApplication.instance()
         if application is not None:
-            application.setStyleSheet(scaled_app_style(adjustment))
+            effective_zoom = int(np.clip(self.interface_zoom + adjustment, -5, 5))
+            application.setStyleSheet(scaled_app_style(effective_zoom))
         # A+ altera fontes, não as larguras dos setores nem a posição dos gráficos.
         self.sidebar.setMinimumWidth(SIDEBAR_WIDTH_RANGE[0])
         self.sidebar.setMaximumWidth(SIDEBAR_WIDTH_RANGE[1])

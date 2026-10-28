@@ -21,7 +21,9 @@ from .data import ComparisonResult
 from .typography import configure_matplotlib_typography
 from .plot_style import COMPARISON_CANVAS_MARGINS, SERIES_LINE_WIDTH, TOTAL_LINE_WIDTH, apply_axes_style
 from .comparison_plot import draw_comparison_axis
+from .temporal_comparison_plot import draw_temporal_comparison_axis
 from .theme import PLOT_BACKGROUND, PLOT_GRID, PLOT_MUTED, PLOT_SPINE, PLOT_TEXT
+from .temporal_plot import draw_temporal_lines
 
 class SeriesLabel(QLabel):
     """Rótulo que quebra linhas e também alterna a seleção da série."""
@@ -234,39 +236,24 @@ class MassBalanceCanvas(FigureCanvas):
     # GRÁFICO 1 — EVOLUÇÃO TEMPORAL
     # -------------------------------------------------------------------------
     def _draw_lines(self, axis, time, values, columns) -> None:
-        for index in columns:
-            axis.plot(
-                time,
-                values[:, index],
-                color=self.colors[index],
-                lw=SERIES_LINE_WIDTH,
-                solid_capstyle="round",
-                label=self.labels[index],
-            )
-        total = np.clip(self.values, 0, None).sum(axis=1)[: len(time)]
-        axis.plot(time, total, color=TOTAL_COLOR, lw=TOTAL_LINE_WIDTH, label="Massa total")
-        axis.set_title(
-            "Evolução temporal",
-            fontsize=self._chart_title_font(),
-            fontweight="bold",
+        draw_temporal_lines(
+            axis,
+            time=time,
+            values=values,
+            columns=columns,
+            labels=self.labels,
+            colors=self.colors,
+            time_name=self.time_name,
+            time_unit=self.time_unit,
+            mass_unit=self.mass_unit,
+            log_scale=self.log_scale,
+            title_font=self._chart_title_font(),
+            axis_font=self._axis_font(),
+            line_width=SERIES_LINE_WIDTH,
+            total_width=TOTAL_LINE_WIDTH,
+            total_color=TOTAL_COLOR,
+            reference_values=self.values,
         )
-        axis.set_xlabel(
-            f"{self.time_name} ({self.time_unit})", fontsize=self._axis_font()
-        )
-        axis.set_ylabel(f"Massa ({self.mass_unit})", fontsize=self._axis_font())
-        complete = np.column_stack(
-            (
-                np.clip(self.values[:, columns], 0, None),
-                np.clip(self.values, 0, None).sum(axis=1),
-            )
-        )
-        maximum = max(float(np.max(complete)), 1e-12)
-        if self.log_scale and np.any(complete > 0):
-            positive = complete[complete > 0]
-            axis.set_yscale("log")
-            axis.set_ylim(max(float(np.min(positive)) * 0.7, 1e-12), maximum * 1.2)
-        else:
-            axis.set_ylim(0, maximum * 1.08)
         self._set_time_limits(axis, time)
 
 
@@ -498,6 +485,7 @@ class ComparisonCanvas(FigureCanvas):
     """Um gráfico do mosaico, com escalas comuns a todos os resultados."""
 
     zoom_requested = Signal()
+    card_zoom_requested = Signal(int)
 
     def __init__(
         self,
@@ -510,6 +498,10 @@ class ComparisonCanvas(FigureCanvas):
         self.result = result
         self.time_limits = time_limits
         self.mass_maximum = mass_maximum
+        self.plot_mode = "accumulated"
+        self.temporal_selected: frozenset[str] | None = None
+        self.temporal_log_scale = False
+        self.temporal_positive_minimum: float | None = None
         self.font_adjustment = 0
         self.setMinimumWidth(330)
         self.setFixedHeight(COMPARISON_GRID_PLOT_HEIGHT)
@@ -533,11 +525,36 @@ class ComparisonCanvas(FigureCanvas):
             self.mass_maximum = mass_maximum
             self.redraw()
 
+    def set_presentation(
+        self,
+        mode: str,
+        selected: frozenset[str] | None,
+        log_scale: bool,
+        positive_minimum: float | None,
+    ) -> None:
+        """Alterna a representação sem reconstruir o cartão Qt."""
+        if mode not in {"accumulated", "temporal"}:
+            raise ValueError(f"Modo comparativo não reconhecido: {mode}")
+        state = (mode, selected, log_scale, positive_minimum)
+        previous = (self.plot_mode, self.temporal_selected,
+                    self.temporal_log_scale, self.temporal_positive_minimum)
+        if state != previous:
+            self.plot_mode, self.temporal_selected, self.temporal_log_scale, self.temporal_positive_minimum = state
+            self.redraw()
+
     def _font(self, size: int) -> int:
         return max(8, round(size * (1 + self.font_adjustment * FONT_PERCENT_STEP / 100)))
 
     def wheelEvent(self, event) -> None:  # noqa: N802 - nome definido pelo Qt
         """Faz a roda do mouse percorrer a página mesmo sobre o gráfico."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+
+            if delta:
+                self.card_zoom_requested.emit(1 if delta >0 else -1)
+            event.accept()
+            return
+        
         parent = self.parentWidget()
         while parent is not None and not isinstance(parent, QScrollArea):
             parent = parent.parentWidget()
@@ -551,9 +568,18 @@ class ComparisonCanvas(FigureCanvas):
     def redraw(self) -> None:
         self.figure.clear()
         axis = self.figure.add_subplot(111)
-        draw_comparison_axis(
-            axis, self.result, self.time_limits, self.mass_maximum,
-            font_adjustment=self.font_adjustment,
-        )
+        if self.plot_mode == "temporal":
+            draw_temporal_comparison_axis(
+                axis, self.result, self.time_limits, self.mass_maximum,
+                selected_labels=self.temporal_selected,
+                log_scale=self.temporal_log_scale,
+                positive_minimum=self.temporal_positive_minimum,
+                font_adjustment=self.font_adjustment,
+            )
+        else:
+            draw_comparison_axis(
+                axis, self.result, self.time_limits, self.mass_maximum,
+                font_adjustment=self.font_adjustment,
+            )
         self.figure.subplots_adjust(**COMPARISON_CANVAS_MARGINS)
         self.draw_idle()
