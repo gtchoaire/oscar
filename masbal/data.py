@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from .config import LABELS
+from .arrival_metrics import ArrivalTimes, calculate_arrival_times
 
 UNKNOWN = "Não identificado"
 
@@ -117,6 +118,31 @@ def load_table(path: Path) -> tuple[np.ndarray, list[str], str, str, str]:
     # Tempos repetidos são preservados: a precisão textual pode causar empates.
     return data, names[1:], time_name, time_unit, mass_units[0]
 
+def arrival_times_from_table(
+    data: np.ndarray,
+    names: list[str],
+) -> ArrivalTimes:
+    """Calcula os tempos de chegada a partir das colunas MASBAL."""
+
+    columns = {
+        name.casefold(): index + 1
+        for index, name in enumerate(names)
+    }
+
+    required = {"surface", "stranded"}
+    missing = required.difference(columns)
+
+    if missing:
+        raise ValueError(
+            f"Categorias MASBAL ausentes: {', '.join(sorted(missing))}"
+        )
+
+    return calculate_arrival_times(
+        time=data[:, 0],
+        surface_mass=data[:, columns["surface"]],
+        stranded_mass=data[:, columns["stranded"]],
+    )
+
 
 def format_br(value: float, decimals: int = 4) -> str:
     """Formata decimal com vírgula e remove zeros decimais desnecessários."""
@@ -135,10 +161,12 @@ class ComparisonResult:
     labels: list[str]
     time_unit: str
     mass_unit: str
+    arrival_times: ArrivalTimes | None = None
 
 
 def load_comparison_result(path: Path) -> ComparisonResult:
     data, names, _time_name, time_unit, mass_unit = load_table(path)
+    arrival_times = arrival_times_from_table(data, names)
     configured_order = {name: index for index, name in enumerate(LABELS)}
     order = sorted(
         range(len(names)),
@@ -151,4 +179,5 @@ def load_comparison_result(path: Path) -> ComparisonResult:
         labels=[LABELS.get(names[index].lower(), names[index]) for index in order],
         time_unit="dias" if time_unit.lower() in {"day", "days"} else time_unit,
         mass_unit=mass_unit,
+        arrival_times=arrival_times,
     )

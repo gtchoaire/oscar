@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QFileDialo
 from .charts import MassBalanceCanvas, SeriesLabel
 from .config import (EXPORT_DPI, EXPORT_FIGURE_SIZE, EXPORT_RENDER_DPI, FONT_PERCENT_STEP, LABELS, PAGE_MARGINS, PAGE_MINIMUM_SIZE,
     SIDEBAR_WIDTH_RANGE, SPLITTER_INITIAL_SIZES, WINDOW_MINIMUM_SIZE, WINDOW_SIZE)
-from .data import format_br, load_table, simulation_title
+from .data import arrival_times_from_table, format_br, load_table, simulation_title
 from .export import save_report_figure
 from .series_info import series_help_html
 from .theme import scaled_app_style
@@ -29,6 +29,7 @@ class MassBalanceWindow(QMainWindow):
         super().__init__()
         self.interface_zoom = 5
         data, names, time_name, time_unit, mass_unit = load_table(path)
+        self.arrival_times = arrival_times_from_table(data, names)
         self.path = path
         self.time = data[:, 0]
         # Reordena as colunas pela ordem definida em LABELS. Chaves que não
@@ -90,6 +91,7 @@ class MassBalanceWindow(QMainWindow):
         root_layout.setSpacing(14)
 
         root_layout.addWidget(self._build_header())
+        root_layout.addWidget(self._build_arrival_summary())
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -149,6 +151,23 @@ class MassBalanceWindow(QMainWindow):
     # -------------------------------------------------------------------------
     # SETOR A — CABEÇALHO: título, tempo atual e retorno do gráfico ampliado
     # -------------------------------------------------------------------------
+
+    def _format_arrival_time(self, value: float | None) -> str:
+        """Formata o tempo de chegada na unidade mais conveniente."""
+
+        if value is None:
+            return "Não registrado"
+
+        unit = self.time_unit.casefold().strip()
+
+        if unit in {"dia", "dias", "day", "days"}:
+            if value < 1.0:
+                return f"{format_br(value * 24, 2)} h"
+
+            return f"{format_br(value, 2)} dias"
+
+        return f"{format_br(value, 2)} {self.time_unit}".strip()
+
     def _build_header(self) -> QWidget:
         header = QFrame()
         header.setObjectName("headerCard")
@@ -452,8 +471,79 @@ class MassBalanceWindow(QMainWindow):
         return font_group
 
     # -------------------------------------------------------------------------
-    # SETOR C — ÁREA CENTRAL DOS QUATRO GRÁFICOS
+    # SETOR C — ÁREA CENTRAL DOS QUATRO GRÁFICOS E SUMMARY 
     # -------------------------------------------------------------------------
+
+
+    def _build_arrival_summary(self) -> QWidget:
+        """Cria os cartões de indicadores da simulação."""
+
+        panel = QFrame()
+        panel.setObjectName("arrivalSummary")
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        section_title = QLabel("INDICADORES DE CHEGADA E ENCALHE")
+        section_title.setObjectName("sectionEyebrow")
+        layout.addWidget(section_title)
+
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(12)
+
+        indicators = [
+            (
+                "CHEGADA À SUPERFÍCIE",
+                self._format_arrival_time(self.arrival_times.surface_time),
+                "Primeiro registro de óleo na superfície",
+            ),
+            (
+                "CHEGADA À COSTA",
+                self._format_arrival_time(self.arrival_times.coast_time),
+                "Primeiro registro de óleo encalhado",
+            ),
+            (
+                "MASSA ACUMULADA NA COSTA",
+                "Não determinada",
+                "Cálculo pendente de validação científica",
+            ),
+        ]
+
+        for heading, value, description in indicators:
+            card = QFrame()
+            card.setObjectName("timeCard")
+            card.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
+
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 12, 16, 12)
+            card_layout.setSpacing(6)
+
+            heading_label = QLabel(heading)
+            heading_label.setObjectName("timeCaption")
+            heading_label.setWordWrap(True)
+
+            value_label = QLabel(value)
+            value_label.setObjectName("timeDisplay")
+            value_label.setWordWrap(True)
+
+            description_label = QLabel(description)
+            description_label.setObjectName("stepDisplay")
+            description_label.setWordWrap(True)
+
+            card_layout.addWidget(heading_label)
+            card_layout.addWidget(value_label)
+            card_layout.addWidget(description_label)
+
+            cards_layout.addWidget(card, stretch=1)
+
+        layout.addLayout(cards_layout)
+
+        return panel
+
     def _build_graph_area(self) -> QWidget:
         frame = QFrame()
         frame.setObjectName("chartCard")

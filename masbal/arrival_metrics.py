@@ -51,3 +51,4 @@ def calculate_arrival_times(
         surface_time=first_arrival(surface_mass),
         coast_time=first_arrival(stranded_mass),
     )
+

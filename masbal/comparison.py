@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QGridLayout, QHBoxLayout, Q
     QPushButton, QScrollArea, QVBoxLayout, QWidget, QFileDialog, QMessageBox,
     QTabBar, QToolButton, QComboBox, QMenu)
 from numpy.strings import index
-
+from .arrival_comparison import ArrivalComparisonPanel
 from .charts import ComparisonCanvas
 from .comparison_export import save_comparison_report
 from .config import (COMPARISON_EXPANDED_PLOT_HEIGHT, COMPARISON_EXPANDED_PLOT_WIDTH, COMPARISON_GRID_COLUMNS, COMPARISON_GRID_PLOT_HEIGHT, COMPARISON_GRID_PLOT_WIDTH,
@@ -109,6 +109,7 @@ class ComparisonView(QWidget):
         self.plot_tabs.setObjectName("comparisonTabs")
         self.plot_tabs.addTab("Distribuição acumulada")
         self.plot_tabs.addTab("Evolução temporal")
+        self.plot_tabs.addTab("Indicadores de chegada")
         self.plot_tabs.setExpanding(False)
         layout.addWidget(self.plot_tabs)
 
@@ -228,7 +229,13 @@ class ComparisonView(QWidget):
         chart_row.addStretch(1)
         chart_row.addLayout(chart_grid)
         chart_row.addStretch(1)
-        content_layout.addLayout(chart_row)
+        self.chart_container = QWidget()
+        self.chart_container.setLayout(chart_row)
+        content_layout.addWidget(self.chart_container)
+        # Painel da terceira aba: Indicadores de chegada
+        self.arrival_panel = ArrivalComparisonPanel()
+        self.arrival_panel.hide()
+        content_layout.addWidget(self.arrival_panel)
         content_layout.addStretch()
         scroll.setWidget(content)
         self.scroll = scroll
@@ -238,6 +245,48 @@ class ComparisonView(QWidget):
         self.plot_tabs.currentChanged.connect(self._switch_plot_mode)
         QTimer.singleShot(0, lambda: self._change_interface_zoom(5)
 )
+
+    # def _refresh_arrival_panel(self) -> None:
+    #     """Atualiza os indicadores dos cenários filtrados."""
+
+    #     visible_results = [
+    #         result
+    #         for result in self.results
+    #         if self.filters.matches(result.path)
+    #     ]
+
+    #     self.arrival_panel.set_results(visible_results)
+
+    def _refresh_arrival_panel(self) -> None:
+        """Atualiza os indicadores dos cenários filtrados."""
+
+        import traceback
+
+        visible_results = [
+            result
+            for result in self.results
+            if self.filters.matches(result.path)
+        ]
+
+        print("Cenários recebidos:", len(visible_results))
+
+        if visible_results:
+            print(
+                "Indicadores do primeiro cenário:",
+                repr(visible_results[0].arrival_times)
+            )
+
+        try:
+            self.arrival_panel.set_results(visible_results)
+            print("Painel atualizado com sucesso.")
+
+            print(
+                "Primeira célula:",
+                self.arrival_panel.table.item(0, 1)
+            )
+
+        except Exception:
+            traceback.print_exc()
 
     def _fit_expanded_chart(self) -> None:
         """Expande o cartão selecionado até os limites da área disponível."""
@@ -344,6 +393,36 @@ class ComparisonView(QWidget):
         """Mantém a grade existente e troca apenas o conteúdo dos eixos."""
         if self.expanded_index is not None:
             self._restore_grid()
+
+        if index == 2:
+            self.title_label.setText("Indicadores de chegada")
+            self.subtitle_label.setText(
+                "Compare os tempos de chegada à superfície e à costa."
+            )
+
+            self.chart_container.hide()
+            self.legend_panel.hide()
+            self.temporal_controls.hide()
+            self._refresh_arrival_panel()
+            self.arrival_panel.show()
+
+            visible_results = [
+                result
+                for result in self.results
+                if self.filters.matches(result.path)
+            ]
+
+            self.arrival_panel.set_results(visible_results)
+
+            self.export_button.setEnabled(False)
+            self.export_button.setToolTip(
+                "A exportação dos indicadores será integrada na próxima etapa."
+            )
+            return
+        self.arrival_panel.hide()
+        self.chart_container.show()
+        self.legend_panel.show()
+        self.export_button.setEnabled(True)
         self.plot_mode = "temporal" if index == 1 else "accumulated"
         self.title_label.setText(
             "Evolução temporal" if index == 1 else "Distribuição acumulada"
@@ -468,6 +547,12 @@ class ComparisonView(QWidget):
         self.count_label.setText(f"{len(visible)} de {len(self.results)} resultados")
         self._refresh_temporal_plots()
         QTimer.singleShot(0, self._fit_chart_grid)
+        if self.plot_tabs.currentIndex() == 2:
+            self.arrival_panel.set_results(
+                [self.results[index] for index in visible]
+            )
+        if (hasattr(self, "arrival_panel") and self.plot_tabs.currentIndex() == 2):
+            self._refresh_arrival_panel()
 
     def _make_legend_entries(self, results: list[ComparisonResult]) -> list[QWidget]:
         present = {label for result in results for label in result.labels}
