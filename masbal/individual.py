@@ -153,7 +153,6 @@ class MassBalanceWindow(QMainWindow):
     # -------------------------------------------------------------------------
 
     def _format_arrival_time(self, value: float | None) -> str:
-        """Formata o tempo de chegada na unidade mais conveniente."""
 
         if value is None:
             return "Não registrado"
@@ -177,7 +176,7 @@ class MassBalanceWindow(QMainWindow):
 
         identity = QVBoxLayout()
         identity.setSpacing(2)
-        eyebrow = QLabel("ANÁLISE  /  BALANÇO DE MASSA")
+        eyebrow = QLabel("ANÁLISE INDIVIDUAL")
         eyebrow.setObjectName("eyebrow")
         identity.addWidget(eyebrow)
 
@@ -186,7 +185,7 @@ class MassBalanceWindow(QMainWindow):
         title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         identity.addWidget(title)
 
-        description = QLabel("Explore a evolução, a distribuição e a composição das massas modeladas.")
+        description = QLabel("Explore a evolução, a distribuição e o destino do óleo.")
         description.setObjectName("subtitle")
         identity.addWidget(description)
 
@@ -233,6 +232,71 @@ class MassBalanceWindow(QMainWindow):
         self.canvas.expanded_changed.connect(self.back_button.setVisible)
         self.canvas.expanded_changed.connect(self._update_canvas_size)
         return header
+
+    def _build_arrival_summary(self) -> QWidget:
+
+        panel = QFrame()
+        panel.setObjectName("arrivalSummary")
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        section_title = QLabel("INDICADORES DE CHEGADA NA SUPERFÍCIE E NA COSTA")
+        section_title.setObjectName("sectionEyebrow")
+        layout.addWidget(section_title)
+
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(12)
+
+        indicators = [
+            (
+                "CHEGADA À SUPERFÍCIE",
+                self._format_arrival_time(self.arrival_times.surface_time),
+                "Primeiro registro de óleo na superfície",
+            ),
+            (
+                "CHEGADA À COSTA",
+                self._format_arrival_time(self.arrival_times.coast_time),
+                "Primeiro registro de óleo encalhado",
+            ),
+            (
+                "MASSA ACUMULADA NA COSTA",
+                "Não determinada",
+                "Cálculo pendente de validação científica",
+            ),
+        ]
+
+        for heading, value, description in indicators:
+            card = QFrame()
+            card.setObjectName("timeCard")
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,)
+
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 12, 16, 12)
+            card_layout.setSpacing(6)
+
+            heading_label = QLabel(heading)
+            heading_label.setObjectName("timeCaption")
+            heading_label.setWordWrap(True)
+
+            value_label = QLabel(value)
+            value_label.setObjectName("timeDisplay")
+            value_label.setWordWrap(True)
+
+            description_label = QLabel(description)
+            description_label.setObjectName("stepDisplay")
+            description_label.setWordWrap(True)
+
+            card_layout.addWidget(heading_label)
+            card_layout.addWidget(value_label)
+            card_layout.addWidget(description_label)
+
+            cards_layout.addWidget(card, stretch=1)
+
+        layout.addLayout(cards_layout)
+
+        return panel
 
     # -------------------------------------------------------------------------
     # SETOR B — MENU LATERAL CANNES: contexto, séries, escala, fontes e ações
@@ -473,76 +537,6 @@ class MassBalanceWindow(QMainWindow):
     # -------------------------------------------------------------------------
     # SETOR C — ÁREA CENTRAL DOS QUATRO GRÁFICOS E SUMMARY 
     # -------------------------------------------------------------------------
-
-
-    def _build_arrival_summary(self) -> QWidget:
-        """Cria os cartões de indicadores da simulação."""
-
-        panel = QFrame()
-        panel.setObjectName("arrivalSummary")
-
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-
-        section_title = QLabel("INDICADORES DE CHEGADA E ENCALHE")
-        section_title.setObjectName("sectionEyebrow")
-        layout.addWidget(section_title)
-
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(12)
-
-        indicators = [
-            (
-                "CHEGADA À SUPERFÍCIE",
-                self._format_arrival_time(self.arrival_times.surface_time),
-                "Primeiro registro de óleo na superfície",
-            ),
-            (
-                "CHEGADA À COSTA",
-                self._format_arrival_time(self.arrival_times.coast_time),
-                "Primeiro registro de óleo encalhado",
-            ),
-            (
-                "MASSA ACUMULADA NA COSTA",
-                "Não determinada",
-                "Cálculo pendente de validação científica",
-            ),
-        ]
-
-        for heading, value, description in indicators:
-            card = QFrame()
-            card.setObjectName("timeCard")
-            card.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Preferred,
-            )
-
-            card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(16, 12, 16, 12)
-            card_layout.setSpacing(6)
-
-            heading_label = QLabel(heading)
-            heading_label.setObjectName("timeCaption")
-            heading_label.setWordWrap(True)
-
-            value_label = QLabel(value)
-            value_label.setObjectName("timeDisplay")
-            value_label.setWordWrap(True)
-
-            description_label = QLabel(description)
-            description_label.setObjectName("stepDisplay")
-            description_label.setWordWrap(True)
-
-            card_layout.addWidget(heading_label)
-            card_layout.addWidget(value_label)
-            card_layout.addWidget(description_label)
-
-            cards_layout.addWidget(card, stretch=1)
-
-        layout.addLayout(cards_layout)
-
-        return panel
 
     def _build_graph_area(self) -> QWidget:
         frame = QFrame()

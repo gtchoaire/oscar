@@ -268,22 +268,8 @@ class ComparisonView(QWidget):
             if self.filters.matches(result.path)
         ]
 
-        print("Cenários recebidos:", len(visible_results))
-
-        if visible_results:
-            print(
-                "Indicadores do primeiro cenário:",
-                repr(visible_results[0].arrival_times)
-            )
-
         try:
             self.arrival_panel.set_results(visible_results)
-            print("Painel atualizado com sucesso.")
-
-            print(
-                "Primeira célula:",
-                self.arrival_panel.table.item(0, 1)
-            )
 
         except Exception:
             traceback.print_exc()

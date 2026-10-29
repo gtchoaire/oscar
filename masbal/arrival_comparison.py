@@ -98,41 +98,25 @@ class ArrivalComparisonPanel(QWidget):
                 surface = coast = None
                 surface_text = coast_text = "Não calculado"
             else:
-                surface = _arrival_hours(metrics.surface_time, result.time_unit
-                )
-                coast = _arrival_hours(metrics.coast_time, result.time_unit
-                )
+                surface = _arrival_hours(metrics.surface_time, result.time_unit)
+                coast = _arrival_hours(metrics.coast_time, result.time_unit)
+                surface_text = ("Não registrado"if surface is None else format_br(surface, 2))
+                coast_text = ("Não registrado" if coast is None else format_br(coast, 2))
 
-                surface_text = ("Não registrado"if surface is None else format_br(surface, 2)
-                )
-                coast_text = ("Não registrado" if coast is None else format_br(coast, 2)
-                )
+            surface_hours.append(np.nan if surface is None else surface)
+            coast_hours.append(np.nan if coast is None else coast)
 
-            surface_hours.append(np.nan if surface is None else surface
-            )
-            coast_hours.append(np.nan if coast is None else coast
-            )
-
-            columns = (f"{row + 1:02d}",simulation_title(result.path),surface_text,coast_text,"Não determinada",
-            )
+            columns = (f"{row + 1:02d}",simulation_title(result.path),surface_text,coast_text,"Não determinada",)
 
             for column, value in enumerate(columns):
-                self.table.setItem(
-                    row,
-                    column,
-                    QTableWidgetItem(str(value)),
-                )
+                self.table.setItem(row, column, QTableWidgetItem(str(value)),)
 
         # ---------------------------------------------------------
         # 2. Dimensionamento dos componentes
         # ---------------------------------------------------------
-        self.table.setFixedHeight(
-            min(800, 65 + 31 * len(results))
-        )
+        self.table.setFixedHeight(min(800, 65 + 31 * len(results)))
 
-        self.canvas.setFixedHeight(
-            max(340, 110 + 35 * len(results))
-        )
+        self.canvas.setFixedHeight(max(340, 110 + 35 * len(results)))
 
         # ---------------------------------------------------------
         # 3. Construção do gráfico comparativo
@@ -142,71 +126,32 @@ class ArrivalComparisonPanel(QWidget):
 
         if not results:
             axis.set_axis_off()
-            axis.text(
-                0.5,
-                0.5,
-                "Nenhum cenário corresponde aos filtros.",
-                ha="center",
-                va="center",
-                transform=axis.transAxes,
-            )
+            axis.text(0.5, 0.5, "Nenhum cenário corresponde aos filtros.", ha="center", va="center", transform=axis.transAxes,)
         else:
             positions = np.arange(len(results))
 
             # Tempo de chegada à superfície
-            axis.barh(
-                positions - 0.19,
-                surface_hours,
-                height=0.36,
-                color=SERIES_COLORS[LABELS["surface"]],
-                label="Chegada à superfície",
-            )
+            axis.barh(positions - 0.19, surface_hours, height=0.36, color=SERIES_COLORS[LABELS["surface"]], label="Chegada à superfície",)
 
             # Tempo de chegada à costa
-            axis.barh(
-                positions + 0.19,
-                coast_hours,
-                height=0.36,
-                color=SERIES_COLORS[LABELS["stranded"]],
-                label="Chegada à costa",
-            )
+            axis.barh(positions + 0.19, coast_hours, height=0.36, color=SERIES_COLORS[LABELS["stranded"]], label="Chegada à costa",)
 
-            axis.set_yticks(
-                positions,
-                [f"{i + 1:02d}" for i in positions],
-            )
+            axis.set_yticks(positions, [f"{i + 1:02d}" for i in positions],)
 
             axis.invert_yaxis()
 
-            axis.set_xlabel(
-                "Tempo desde o início da simulação (h)"
-            )
-            axis.set_ylabel(
-                "Cenário (número na tabela)"
-            )
-            axis.set_title(
-                "Primeira chegada registrada",
-                loc="left",
-                pad=16,
-            )
+            axis.set_xlabel("Tempo desde o início da simulação (h)")
+            axis.set_ylabel("Cenário (número na tabela)")
+            axis.set_title("Primeira chegada registrada", loc="left", pad=16,)
 
             axis.set_xlim(left=0)
-            axis.legend(loc="lower right")
+            axis.legend(loc="best", fontsize = 14)
 
-            apply_axes_style(
-                axis,
-                tick_size=FONT_BASE,
-                grid_axis="x",
-            )
+            apply_axes_style(axis, tick_size=FONT_BASE, grid_axis="x",)
 
         # ---------------------------------------------------------
         # 4. Layout e atualização do canvas
         # ---------------------------------------------------------
-        self.figure.subplots_adjust(
-            left=0.10,
-            right=0.97,
-            top=0.89,
-            bottom=0.13,
-        )
+        self.figure.subplots_adjust(left=0.10, right=0.97, top=0.89, bottom=0.13,)
 
         self.canvas.draw_idle()
